@@ -131,6 +131,11 @@ def dashboard():
     with data_lock:
         return jsonify(meter_data)
 
+# +++ NEW ROUTE TO SERVE THE HTML TESTING PAGE +++
+@app.route('/tester')
+def mpesa_tester():
+    """Serves the HTML page for simulating M-Pesa payments."""
+    return render_template('index.html')
 
 if __name__ == '__main__':
     # For local testing, runs on http://127.0.0.1:5000
