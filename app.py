@@ -26,36 +26,77 @@ BILLING_RATE = 10.0  # KSh per kWh
 data_lock = Lock()
 
 
-# --- Route for the ESP32 to poll for status/commands ---
-@app.route('/', methods=['GET'])
+# # --- Route for the ESP32 to poll for status/commands ---
+# @app.route('/', methods=['GET'])
+# def handle_esp_poll():
+#     """
+#     This endpoint is called by the ESP32 periodically.
+#     It checks if there's a new command/message waiting for it.
+#     Example URL called by ESP32: https://your-app.onrender.com/?command=status
+#     """
+#     # The ESP32 code uses ?command=status
+#     if request.args.get('command') == 'status':
+#         with data_lock:
+#             # Check if there is a pending command
+#             if meter_data['last_command_for_esp']:
+#                 command = meter_data['last_command_for_esp']
+#                 meter_data['last_command_for_esp'] = None  # Clear the command after sending
+#                 print(f"Sent command to ESP32: {command}")
+#                 return jsonify({"message": command})
+#             else:
+#                 return jsonify({"message": "OK. No new commands."})
+                
+#     # A simple message for anyone browsing the root URL
+#     return "Smart Energy Meter Flask Server is running."
+
+
+# # --- Route for the ESP32 to send its energy data ---
+# @app.route('/', methods=['POST'])
+# def receive_energy_data():
+#     """
+#     This endpoint receives JSON data from the ESP32.
+#     ESP32 sends: {"totalEnergy": 123.45}
+#     """
+#     data = request.get_json()
+#     if not data or 'totalEnergy' not in data:
+#         return jsonify({"status": "error", "message": "Invalid data format"}), 400
+
+#     received_energy = data['totalEnergy']
+
+#     with data_lock:
+#         if meter_data['mode'] == 'prepaid':
+#             meter_data['totalEnergy_prepaid'] = received_energy
+#         else: # postpaid
+#             meter_data['totalEnergy_postpaid'] = received_energy
+#             # Update the balance in real-time
+#             meter_data['unpaid_balance_ksh'] = meter_data['totalEnergy_postpaid'] * BILLING_RATE
+        
+#         print(f"Received data from ESP32. Current state: {meter_data}")
+
+#     return jsonify({"status": "success", "message": "Data received"})
+
+# --- NEW ROUTE for the ESP32 to poll for status/commands ---
+@app.route('/get_status', methods=['GET']) # Changed from '/' to '/get_status'
 def handle_esp_poll():
     """
     This endpoint is called by the ESP32 periodically.
     It checks if there's a new command/message waiting for it.
-    Example URL called by ESP32: https://your-app.onrender.com/?command=status
     """
-    # The ESP32 code uses ?command=status
-    if request.args.get('command') == 'status':
-        with data_lock:
-            # Check if there is a pending command
-            if meter_data['last_command_for_esp']:
-                command = meter_data['last_command_for_esp']
-                meter_data['last_command_for_esp'] = None  # Clear the command after sending
-                print(f"Sent command to ESP32: {command}")
-                return jsonify({"message": command})
-            else:
-                return jsonify({"message": "OK. No new commands."})
-                
-    # A simple message for anyone browsing the root URL
-    return "Smart Energy Meter Flask Server is running."
+    with data_lock:
+        if meter_data['last_command_for_esp']:
+            command = meter_data['last_command_for_esp']
+            meter_data['last_command_for_esp'] = None  # Clear command after sending
+            print(f"Sent command to ESP32: {command}")
+            return jsonify({"message": command})
+        else:
+            return jsonify({"message": "OK. No new commands."})
 
 
-# --- Route for the ESP32 to send its energy data ---
-@app.route('/', methods=['POST'])
+# --- NEW ROUTE for the ESP32 to send its energy data ---
+@app.route('/log_energy', methods=['POST']) # Changed from '/' to '/log_energy'
 def receive_energy_data():
     """
     This endpoint receives JSON data from the ESP32.
-    ESP32 sends: {"totalEnergy": 123.45}
     """
     data = request.get_json()
     if not data or 'totalEnergy' not in data:
@@ -68,13 +109,12 @@ def receive_energy_data():
             meter_data['totalEnergy_prepaid'] = received_energy
         else: # postpaid
             meter_data['totalEnergy_postpaid'] = received_energy
-            # Update the balance in real-time
             meter_data['unpaid_balance_ksh'] = meter_data['totalEnergy_postpaid'] * BILLING_RATE
         
-        print(f"Received data from ESP32. Current state: {meter_data}")
+        # We don't need a detailed log here anymore, the endpoint says what it does.
+        # print(f"Received data from ESP32. Current state: {meter_data}")
 
     return jsonify({"status": "success", "message": "Data received"})
-
 
 # --- Route for the SMS Webhook (from Twilio) ---
 @app.route('/sms', methods=['POST', 'GET']) # Allow GET for easier browser testing
